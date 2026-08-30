@@ -1,27 +1,24 @@
 """Configuration settings for the forecasting pipeline."""
-from pathlib import Path
-import configparser
-import os
 
-# Read configuration from config.ini
+import configparser
+from pathlib import Path
+
 config = configparser.ConfigParser()
-config_path = Path(__file__).parent.parent / 'config.ini'
+config_path = Path(__file__).parent.parent / "config.ini"
 config.read(config_path)
 
-# Paths
-DATA_PATH = config['Paths'].get('dataset_data')
-OUTPUT_DIR = Path(config['Paths'].get('output_dir', 'outputs'))
-MODEL_DIR = Path(config['Paths'].get('model_dir', 'models'))
+_paths = config["Paths"] if "Paths" in config else {}
 
-# Create directories if they don't exist
-for directory in [OUTPUT_DIR, MODEL_DIR]:
-    directory.mkdir(parents=True, exist_ok=True)
+DATA_PATH = _paths.get("dataset_data", "data/raw/dataset.csv")
+OUTPUT_DIR = Path(_paths.get("output_dir", "outputs"))
+MODEL_DIR = Path(_paths.get("model_dir", "models"))
 
-# Model parameters
+for _dir in (OUTPUT_DIR, MODEL_DIR):
+    _dir.mkdir(parents=True, exist_ok=True)
+
 MODEL_PARAMS = {
-    'season_length': 12,  # Monthly seasonality
-    'n_jobs': -1  # Use all available cores
+    "season_length": 12,
+    "n_jobs": -1,
 }
 
-# Forecast horizon
-FORECAST_HORIZON = 12  # 12 months ahead
+FORECAST_HORIZON = 12
