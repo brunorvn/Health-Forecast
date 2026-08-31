@@ -4,7 +4,7 @@
 
 PROJECT_NAME = Health-Forecast
 PYTHON_VERSION = 3.12
-PYTHON_INTERPRETER = python
+PYTHON_INTERPRETER ?= python3
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -61,10 +61,15 @@ create_environment:
 #################################################################################
 
 
-## Make dataset
+## Make dataset (synthetic, reproducible — no HC dump needed)
 .PHONY: data
-data: requirements
-	$(PYTHON_INTERPRETER) sigma/dataset.py
+data:
+	$(PYTHON_INTERPRETER) -m sigma.dataset --seed 42
+
+## Sync deps with uv (preferred) or pip
+.PHONY: sync
+sync:
+	uv sync --group dev 2>/dev/null || pip install -e ".[dev]"
 
 
 #################################################################################

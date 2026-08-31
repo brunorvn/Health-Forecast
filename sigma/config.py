@@ -13,7 +13,11 @@ DATA_PATH = _paths.get("dataset_data", "data/raw/dataset.csv")
 OUTPUT_DIR = Path(_paths.get("output_dir", "outputs"))
 MODEL_DIR = Path(_paths.get("model_dir", "models"))
 
-for _dir in (OUTPUT_DIR, MODEL_DIR):
+# CCDS compatibility
+RAW_DATA_DIR = Path("data/raw")
+PROCESSED_DATA_DIR = Path("data/processed")
+INTERIM_DATA_DIR = Path("data/interim")
+for _dir in (OUTPUT_DIR, MODEL_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR, INTERIM_DATA_DIR):
     _dir.mkdir(parents=True, exist_ok=True)
 
 MODEL_PARAMS = {
