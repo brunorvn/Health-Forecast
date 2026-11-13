@@ -2,12 +2,12 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
 
-def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
+def load_config(config_path: Path | None = None) -> dict[str, Any]:
     """
     Load configuration from a JSON file.
 
@@ -27,7 +27,7 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
         return json.load(f)
 
 
-def save_config(config: Dict[str, Any], config_path: Optional[Path] = None) -> None:
+def save_config(config: dict[str, Any], config_path: Path | None = None) -> None:
     """
     Save configuration to a JSON file.
 
@@ -42,7 +42,7 @@ def save_config(config: Dict[str, Any], config_path: Optional[Path] = None) -> N
         json.dump(config, f, indent=4)
 
 
-def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     """
     Calculate various forecast accuracy metrics.
 
@@ -58,15 +58,29 @@ def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float
     abs_errors = np.abs(errors)
     squared_errors = errors**2
 
+    # Percentage errors are undefined at zero demand, which is common in the
+    # HC series: average over the non-zero points and return NaN otherwise.
+    nonzero_true = y_true != 0
+    mape = (
+        float(np.mean(np.abs(errors[nonzero_true] / y_true[nonzero_true])) * 100)
+        if nonzero_true.any()
+        else float("nan")
+    )
+    denom = np.abs(y_true) + np.abs(y_pred)
+    nonzero_denom = denom != 0
+    smape = (
+        float(2.0 * np.mean(np.abs(errors[nonzero_denom]) / denom[nonzero_denom]) * 100)
+        if nonzero_denom.any()
+        else float("nan")
+    )
+
     # Calculate metrics
     metrics = {
         "mae": np.mean(abs_errors),  # Mean Absolute Error
         "mse": np.mean(squared_errors),  # Mean Squared Error
         "rmse": np.sqrt(np.mean(squared_errors)),  # Root Mean Squared Error
-        "mape": np.mean(np.abs(errors / y_true)) * 100,  # Mean Absolute Percentage Error
-        "smape": 2.0
-        * np.mean(np.abs(errors) / (np.abs(y_true) + np.abs(y_pred)))
-        * 100,  # Symmetric MAPE
+        "mape": mape,  # Mean Absolute Percentage Error (zero-safe)
+        "smape": smape,  # Symmetric MAPE (zero-safe)
     }
 
     return metrics
@@ -82,7 +96,7 @@ def ensure_directory_exists(directory: Path) -> None:
     directory.mkdir(parents=True, exist_ok=True)
 
 
-def get_latest_file(directory: Path, pattern: str = "*") -> Optional[Path]:
+def get_latest_file(directory: Path, pattern: str = "*") -> Path | None:
     """
     Get the most recently modified file in a directory matching a pattern.
 

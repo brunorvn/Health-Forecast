@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 from loguru import logger
 import numpy as np
@@ -22,7 +21,7 @@ from sigma.config import MODEL_DIR, MODEL_PARAMS
 class ForecastModel:
     """Wrapper class for forecasting models with support for multiple algorithms."""
 
-    def __init__(self, model_name: Union[str, List[Dict]] = "auto_arima", **model_params):
+    def __init__(self, model_name: str | list[dict] = "auto_arima", **model_params):
         """
         Initialize the forecasting model(s).
 
@@ -42,9 +41,7 @@ class ForecastModel:
             self.model_list = model_name
             self.model_name = "ensemble" if len(model_name) > 1 else model_name[0]["name"].lower()
         else:
-            raise ValueError(
-                "model_name must be either a string or a list of model configurations"
-            )
+            raise TypeError("model_name must be either a string or a list of model configurations")
 
         self.models = None
         self.fitted = False
@@ -91,10 +88,10 @@ class ForecastModel:
         self,
         df: pd.DataFrame,
         freq: str = "MS",
-        test_size: Optional[int] = None,
+        test_size: int | None = None,
         n_windows: int = 5,
         step_size: int = 1,
-    ) -> Dict:
+    ) -> dict:
         """
         Train the forecasting model with optional cross-validation.
 
@@ -148,10 +145,10 @@ class ForecastModel:
             "train_data": train,
             "test_data": test,
             "metrics": metrics,
-            "model": self.model,
+            "model": self.model_name,
         }
 
-    def predict(self, horizon: int = None, **kwargs) -> pd.DataFrame:
+    def predict(self, horizon: int | None = None, **kwargs) -> pd.DataFrame:
         """
         Generate forecasts.
 
@@ -170,8 +167,8 @@ class ForecastModel:
 
     @staticmethod
     def evaluate(
-        y_true: pd.DataFrame, y_pred: pd.DataFrame, metrics: List[str] = None
-    ) -> Dict[str, float]:
+        y_true: pd.DataFrame, y_pred: pd.DataFrame, metrics: list[str] | None = None
+    ) -> dict[str, float]:
         """
         Evaluate model performance.
 
@@ -211,7 +208,7 @@ class ForecastModel:
         n_windows: int = 5,
         step_size: int = 1,
         horizon: int = 12,
-    ) -> Dict:
+    ) -> dict:
         """
         Perform time series cross-validation.
 
@@ -233,7 +230,7 @@ class ForecastModel:
 
         return cv_results
 
-    def save(self, path: Union[str, Path] = None) -> None:
+    def save(self, path: str | Path | None = None) -> None:
         """
         Save the trained model to disk.
 
@@ -251,7 +248,7 @@ class ForecastModel:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.models.save(str(path))
 
-        # Save model metadata
+        # Save model metadata next to the pickle (StatsForecast.save writes a file)
         metadata = {
             "model_name": self.model_name,
             "model_list": self.model_list,
@@ -260,13 +257,13 @@ class ForecastModel:
             "horizon": self.horizon,
         }
 
-        with open(path / "metadata.json", "w") as f:
+        with open(path.with_suffix(".json"), "w") as f:
             json.dump(metadata, f)
 
         logger.info(f"Model saved to {path}")
 
     @classmethod
-    def load(cls, path: Union[str, Path]) -> "ForecastModel":
+    def load(cls, path: str | Path) -> "ForecastModel":
         """
         Load a trained model from disk.
 
@@ -278,8 +275,11 @@ class ForecastModel:
         """
         path = Path(path)
 
-        # Load metadata
-        with open(path / "metadata.json", "r") as f:
+        # Load metadata (sibling .json; fall back to the old directory layout)
+        meta_path = path.with_suffix(".json")
+        if not meta_path.exists():
+            meta_path = path / "metadata.json"
+        with open(meta_path, "r") as f:
             metadata = json.load(f)
 
         # Create model instance with saved configuration
@@ -301,7 +301,7 @@ class ForecastModel:
         self,
         df: pd.DataFrame,
         forecasts: pd.DataFrame,
-        unique_id: str = None,
+        unique_id: str | None = None,
         plot_anomalies: bool = False,
     ) -> None:
         """

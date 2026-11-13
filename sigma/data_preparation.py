@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -79,7 +78,7 @@ def _looks_like_date_col(name: str) -> bool:
 
 
 def _is_wide(df: pd.DataFrame) -> bool:
-    if set(["unique_id", "ds", "y"]).issubset(df.columns):
+    if {"unique_id", "ds", "y"}.issubset(df.columns):
         return False
     # wide: primeira coluna é id, demais parecem Jan/2018, Janeiro/2018, 01/2018...
     if len(df.columns) < 3:
@@ -136,7 +135,7 @@ def _wide_to_long(df: pd.DataFrame) -> pd.DataFrame:
 # ---- public --------------------------------------------------------------
 
 
-def prepare_data(file_path: Optional[Union[str, Path]] = None) -> pd.DataFrame:
+def prepare_data(file_path: str | Path | None = None) -> pd.DataFrame:
     """
     Lê CSV long (unique_id,ds,y) ou wide (id, Jan/2018, Fev/2018, ...).
 

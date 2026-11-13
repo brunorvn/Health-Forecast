@@ -4,7 +4,7 @@
 
 PROJECT_NAME = Health-Forecast
 PYTHON_VERSION = 3.12
-PYTHON_INTERPRETER ?= python3
+PYTHON_INTERPRETER ?= uv run python
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -66,10 +66,16 @@ create_environment:
 data:
 	$(PYTHON_INTERPRETER) -m sigma.dataset --seed 42
 
+## Train + evaluate + forecast on the synthetic dataset
+.PHONY: train
+train: data
+	$(PYTHON_INTERPRETER) -m sigma.main --data-path data/raw/dataset.csv \
+		--model auto_arima --train --evaluate --forecast --plot
+
 ## Sync deps with uv (preferred) or pip
 .PHONY: sync
 sync:
-	uv sync --group dev 2>/dev/null || pip install -e ".[dev]"
+	uv sync --extra dev 2>/dev/null || pip install -e ".[dev]"
 
 
 #################################################################################

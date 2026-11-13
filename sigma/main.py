@@ -15,6 +15,7 @@ from sigma.utils import ensure_directory_exists
 app = typer.Typer(help="Time Series Forecasting Pipeline")
 
 
+@app.callback(invoke_without_command=True)
 def run_pipeline(
     data_path: Path = typer.Option(
         DATA_PATH,
@@ -78,13 +79,13 @@ def run_pipeline(
             with open(model_config, "r") as f:
                 model_configs = json.load(f)
             if not isinstance(model_configs, list):
-                raise ValueError("Model config must be a list of model configurations")
+                raise TypeError("Model config must be a list of model configurations")
             model_list = model_configs
             model_name = (
                 "ensemble" if len(model_configs) > 1 else model_configs[0].get("name", "model")
             )
-        except Exception as e:
-            raise typer.BadParameter(f"Error loading model config: {str(e)}")
+        except (OSError, ValueError) as e:
+            raise typer.BadParameter(f"Error loading model config: {e!s}") from e
     elif model_name:
         # Parse comma-separated model names
         model_names = [m.strip() for m in model_name.split(",")]
@@ -95,10 +96,10 @@ def run_pipeline(
 
     # Validate model names
     for model_cfg in model_list:
-        model_name = model_cfg.get("name", "").lower()
-        if model_name not in available_models:
+        cfg_name = model_cfg.get("name", "").lower()
+        if cfg_name not in available_models:
             raise typer.BadParameter(
-                f"Invalid model: {model_name}. Available models: {', '.join(available_models)}"
+                f"Invalid model: {cfg_name}. Available models: {', '.join(available_models)}"
             )
 
     logger.info(f"Using models: {[m['name'] for m in model_list]}")
@@ -154,23 +155,25 @@ def run_pipeline(
             )
             return
 
+    # One prediction pass serves evaluation, the saved CSV and the plots
+    forecasts = None
+    if evaluate or forecast:
+        forecasts = model.predict(horizon=horizon)
+
+        # For a single model, name the point forecast column after the model
+        # (StatsForecast uses the class name, e.g. AutoARIMA).
+        if len(model_list) == 1:
+            point_cols = [
+                col
+                for col in forecasts.columns
+                if col not in ["unique_id", "ds"] and not any(x in col for x in ["-lo-", "-hi-"])
+            ]
+            if len(point_cols) == 1:
+                forecasts = forecasts.rename(columns={point_cols[0]: model_name})
+
     # Evaluate model on test set
     if evaluate and not test_df.empty:
         logger.info("Evaluating model on test set...")
-
-        # Generate forecasts for the test period
-        forecasts = model.predict(h=horizon)
-
-        # For multiple models, no need to rename as StatsForecast handles this
-        if len(model_list) == 1:
-            # For single model, ensure consistent column naming
-            forecast_columns = {
-                col: f"{model_name}_{col}"
-                for col in forecasts.columns
-                if col not in ["unique_id", "ds"] and not any(m in col for m in available_models)
-            }
-            if forecast_columns:
-                forecasts = forecasts.rename(columns=forecast_columns)
 
         # Evaluate forecasts
         metrics = evaluate_forecasts(forecasts, test_df)
@@ -185,9 +188,6 @@ def run_pipeline(
     # Generate forecasts
     if forecast:
         logger.info("Generating forecasts...")
-
-        # Generate forecasts for the specified horizon
-        forecasts = model.predict(h=horizon)
 
         # Save forecasts
         forecast_path = save_forecasts(forecasts, model_name, output_dir)
@@ -212,12 +212,6 @@ def run_pipeline(
                         save_path=plot_path,
                     )
             logger.info(f"Plots saved to {plot_dir}")
-
-
-@app.callback()
-def main():
-    """Time Series Forecasting Pipeline."""
-    pass
 
 
 if __name__ == "__main__":

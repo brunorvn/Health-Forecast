@@ -69,3 +69,13 @@ def test_calculate_metrics():
     m2 = calculate_metrics(y_true, y_pred2)
     assert m2["mae"] == 1.0
     assert "mape" in m2 and "smape" in m2
+
+
+def test_calculate_metrics_zero_safe_mape():
+    y_true = np.array([0.0, 10.0, 20.0])
+    y_pred = np.array([1.0, 12.0, 19.0])
+    m = calculate_metrics(y_true, y_pred)
+    # zero demand must not turn into inf/nan for the percentage errors
+    assert np.isfinite(m["mape"])
+    assert np.isfinite(m["smape"])
+    assert np.isclose(m["mae"], 4 / 3)

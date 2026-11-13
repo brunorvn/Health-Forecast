@@ -1,17 +1,17 @@
 """Forecasting pipeline and evaluation."""
 
 from pathlib import Path
-from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import pandas as pd
 from utilsforecast.evaluation import evaluate
+from utilsforecast.losses import mae, mse, rmse
 
 from .config import OUTPUT_DIR
 
 
 def evaluate_forecasts(
-    forecasts: pd.DataFrame, test_df: pd.DataFrame, metrics: Optional[List[str]] = None
+    forecasts: pd.DataFrame, test_df: pd.DataFrame, metrics: list | None = None
 ) -> pd.DataFrame:
     """
     Evaluate forecasts against test data.
@@ -19,26 +19,23 @@ def evaluate_forecasts(
     Args:
         forecasts: DataFrame with forecasted values
         test_df: DataFrame with actual values
-        metrics: List of metrics to calculate (default: ['mse'])
+        metrics: list of utilsforecast loss callables (default: mse, mae, rmse)
 
     Returns:
         pd.DataFrame: Evaluation metrics
     """
     if metrics is None:
-        metrics = ["mse"]
+        metrics = [mse, mae, rmse]
 
     # Ensure we have the required columns
     required_cols = ["unique_id", "ds", "y"]
     if not all(col in test_df.columns for col in required_cols):
         raise ValueError(f"Test data must contain columns: {required_cols}")
 
-    # Merge forecasts with actual values
+    # Merge forecasts with actual values (utilsforecast expects the target in `y`)
     eval_df = forecasts.merge(
         test_df[["unique_id", "ds", "y"]], on=["unique_id", "ds"], how="left"
     )
-
-    # Rename columns to match utilsforecast expected format
-    eval_df = eval_df.rename(columns={"y": "y_test"})
 
     # Calculate metrics
     results = []
@@ -51,7 +48,6 @@ def evaluate_forecasts(
             df=eval_df,
             metrics=metrics,
             models=[model],
-            target_df=test_df,
             id_col="unique_id",
             time_col="ds",
             target_col="y",
@@ -66,8 +62,8 @@ def plot_forecasts(
     test_df: pd.DataFrame,
     forecasts: pd.DataFrame,
     model_name: str,
-    unique_id: Optional[str] = None,
-    save_path: Optional[Path] = None,
+    unique_id: str | None = None,
+    save_path: Path | None = None,
 ) -> None:
     """
     Plot forecasts against actual values.
@@ -140,7 +136,9 @@ def plot_forecasts(
         plt.show()
 
 
-def save_forecasts(forecasts: pd.DataFrame, model_name: str, output_dir: Path = None) -> Path:
+def save_forecasts(
+    forecasts: pd.DataFrame, model_name: str, output_dir: Path | None = None
+) -> Path:
     """
     Save forecasts to a CSV file.
 

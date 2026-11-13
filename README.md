@@ -1,150 +1,82 @@
-# SIGMA
+# Health-Forecast
 
-<a target="_blank" href="https://cookiecutter-data-science.drivendata.org/">
-    <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
-</a>
+Previsão de demanda mensal de procedimentos do Hospital das Clínicas da UFPE
+(HC-UFPE), com o resultado adotado pela diretoria do HC na interlocução com o SUS.
 
-Sistema Inteligente de Gestão da Monitoria e Antecipação
+Este repositório é a versão de portfólio: o notebook original virou um pacote
+Python com dados sintéticos reprodutíveis, treino, avaliação e figuras.
 
-# HC Demand Forecasting
+**Versão 0.1** — ingestão reprodutível + treino e avaliação de um modelo por vez.
 
-Production analysis and prediction of UFPE university hospital using time series forecasting models.
+## O que tem
 
-## Features
+| Módulo | Faz |
+|---|---|
+| `sigma/dataset.py` | gera o dataset sintético HC-like (6 séries × 72 meses, seed 42) |
+| `sigma/data_preparation.py` | ingere CSV long (`unique_id,ds,y`) ou wide DATASUS (`Jan/2018`, `Janeiro/2018`), com `,` ou `;`, UTF-8 ou latin-1, e descarta linhas/colunas `Total` |
+| `sigma/models.py` | wrapper do StatsForecast com AutoARIMA, AutoETS, Theta, AutoCES, AutoTBATS e AutoTheta |
+| `sigma/main.py` | CLI de treino, avaliação, previsão e gráfico |
+| `sigma/utils.py` | métricas MAE, MSE, RMSE, MAPE e sMAPE (as percentuais ignoram pontos com demanda zero) |
 
-- **Multiple Models**: Supports AutoARIMA and AutoETS models
-- **Easy Configuration**: Simple configuration via `config.ini`
-- **Modular Design**: Well-organized codebase for easy extension
-- **Comprehensive Evaluation**: Multiple evaluation metrics and visualization
-- **Command-line Interface**: Simple CLI for training, evaluation, and forecasting
+## Começar
 
-## Project Structure
-
-```
-hc-demand-forecasting/
-├── LICENSE
-├── Makefile           <- Makefile with commands like `make data` or `make train`
-├── README.md          <- This file
-├── config.ini         <- Configuration file
-├── requirements.txt   <- Python dependencies
-│
-├── data/             <- All project data, ignored by git
-│   ├── external/      <- Data from third party sources
-│   ├── interim/       <- Intermediate data that has been transformed
-│   ├── processed/     <- The final, canonical data sets for modeling
-│   └── raw/           <- The original, immutable data dump
-│
-├── docs/             <- Documentation
-│
-├── models/           <- Trained and serialized models
-│
-├── notebooks/        <- Jupyter notebooks for exploration and analysis
-│
-├── outputs/          <- Generated outputs (plots, reports, etc.)
-│
-└── src/              <- Source code for this project
-    ├── config.py          # Configuration settings
-    ├── data_preparation.py # Data loading and preprocessing
-    ├── models.py          # Model definitions and training
-    ├── forecast.py        # Forecasting pipeline and evaluation
-    ├── utils.py           # Utility functions
-    └── main.py            # Main script
-```
-
-## Installation
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/yourusername/hc-demand-forecasting.git
-   cd hc-demand-forecasting
-   ```
-
-2. Create and activate a virtual environment (recommended):
-
-   ```bash
-   # On Windows
-   python -m venv venv
-   .\venv\Scripts\activate
-   
-   # On macOS/Linux
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-3. Install dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Usage
-
-### Configuration
-
-1. Copy the example configuration file:
-
-   ```bash
-   cp config.ini.example config.ini
-   ```
-
-2. Edit `config.ini` with your data paths and settings.
-
-### Command Line Interface
+Requisitos: Python 3.12 e [uv](https://docs.astral.sh/uv/).
 
 ```bash
-# Train and evaluate a model
-python -m src.main --train --evaluate --model auto_arima
-
-# Generate forecasts with a pre-trained model
-python -m src.main --forecast --plot --model auto_arima
-
-# Use an ensemble of models
-python -m src.main --train --evaluate --forecast --plot --model ensemble
+uv sync --extra dev
+make data      # data/raw/dataset.csv, 432 linhas sintéticas
+make train     # treina, avalia, prevê e plota
 ```
 
-### Available Models
+`make train` escreve:
 
-- `auto_arima`: AutoARIMA model
-- `auto_ets`: ETS (Error, Trend, Seasonality) model
-- `ensemble`: Ensemble of AutoARIMA and AutoETS models
+- `outputs/auto_arima_metrics.csv` — métricas por série
+- `outputs/auto_arima_forecasts.csv` — previsão para o horizonte de 12 meses
+- `outputs/plots/` — um PNG por série
+- `models/auto_arima_model.pkl` + `.json` — modelo treinado e metadados
 
-### Data Format
-
-The input CSV file should have the following columns:
-
-- `unique_id`: Identifier for the time series
-- `ds`: Date in YYYY-MM-DD format
-- `y`: Numeric value to forecast
-
-Example:
-
-```csv
-unique_id,ds,y
-A,2023-01-01,100
-A,2023-02-01,120
-B,2023-01-01,50
-B,2023-02-01,55
-```
-
-## Development
-
-### Running Tests
+Com o venv ativo, a CLI aceita as opções direto:
 
 ```bash
-pytest tests/
+python -m sigma.main --data-path data/raw/dataset.csv \
+  --model auto_arima --train --evaluate --forecast --plot
 ```
 
-### Code Formatting
+Modelos disponíveis: `auto_arima`, `auto_ets`, `theta`, `auto_ces`, `auto_tbats`,
+`auto_theta`. Sem `--train`, o comando carrega o modelo salvo em `models/`.
+
+## Dados
+
+O repositório não versiona dados do HC. `make data` gera uma amostra sintética
+com sazonalidade 12, tendência e ruído, no formato `unique_id,ds,y` que a
+pipeline espera. O notebook em `notebooks/` é o estudo original, versionado sem
+outputs.
+
+## Estrutura
+
+```
+sigma/            pacote (config, dataset, preparação, modelos, CLI)
+tests/            pytest da ingestão, das métricas e da avaliação
+notebooks/        estudo exploratório (sem outputs)
+data/             gerado por `make data` (fora do git)
+models/           modelos treinados (fora do git)
+outputs/          métricas, previsões e figuras (fora do git)
+```
+
+## Qualidade
 
 ```bash
-ruff check --fix .
+make lint   # ruff format --check + ruff check
+make test   # pytest
 ```
 
-## License
+## Próximo
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- validação cruzada temporal com intervalos de 90% e análise de resíduos
+- API FastAPI `/forecast` por `unique_id`
+- Docker + `docker compose` para API e docs
+- CI rodando `make lint` e `make test`
 
-## Contributing
+## Licença
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+MIT — ver [LICENSE](LICENSE).
