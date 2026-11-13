@@ -1,0 +1,4 @@
+[Paths]
+dataset_data = data/raw/dataset.csv
+output_dir = outputs
+model_dir = models
